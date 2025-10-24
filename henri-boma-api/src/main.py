@@ -23,7 +23,9 @@ from src.routes.menu import menu_bp
 from src.routes.events import events_bp
 from src.routes.payments import payments_bp
 from src.routes.admin import admin_bp
-
+from src.routes.content import content_bp
+from src.routes.tickets import tickets_bp
+from src.routes.analytics import analytics_bp
 app = Flask(__name__, static_folder=os.path.join(os.path.dirname(__file__), 'static'))
 
 # Configuration
@@ -31,7 +33,9 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'henri-boma-secret-key-2025')
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'henri-boma-jwt-secret-2025')
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=24)
 app.config['JWT_REFRESH_TOKEN_EXPIRES'] = timedelta(days=30)
-
+app.config['MAX_CONTENT_LENGTH'] = int(os.getenv('MAX_FILE_SIZE', 10485760))  # 10MB
+app.config['UPLOAD_FOLDER'] = os.getenv('UPLOAD_FOLDER', '/var/www/henri-boma-complete-project/henri-boma-media')
+app.config['MEDIA_BASE_URL'] = os.getenv('MEDIA_BASE_URL', 'https://media.thehenriboma.com')
 # MongoDB Configuration
 MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/')
 mongo_client = MongoClient(MONGO_URI)
@@ -62,7 +66,13 @@ if db is not None:
     AuthUserModel(db) # seeds default admin if not production
 
 # Initialize extensions
-CORS(app, origins="*")  # Allow all origins for development
+# Line 65: Replace the existing CORS line
+CORS(app, origins=[
+    "https://www.thehenriboma.com",
+    "https://admin.thehenriboma.com", 
+    "https://api.thehenriboma.com",
+    "https://media.thehenriboma.com"
+]) # Allow all origins for development
 jwt = JWTManager(app)
 
 # Register blueprints
@@ -73,7 +83,9 @@ app.register_blueprint(menu_bp, url_prefix='/api/menu')
 app.register_blueprint(events_bp, url_prefix='/api/events')
 app.register_blueprint(payments_bp, url_prefix='/api/payments')
 app.register_blueprint(admin_bp, url_prefix='/api/admin')
-
+app.register_blueprint(content_bp, url_prefix='/api/content')
+app.register_blueprint(tickets_bp, url_prefix='/api/tickets')
+app.register_blueprint(analytics_bp, url_prefix='/api/analytics')
 # Health check endpoint
 @app.route('/api/health')
 def health_check():

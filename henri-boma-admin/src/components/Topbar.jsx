@@ -50,6 +50,14 @@ const Topbar = ({ activeModule, darkMode, setDarkMode, sidebarCollapsed, setSide
     document.documentElement.classList.toggle('dark')
   }
 
+  // ✅ Add this function to handle logout
+  const handleLogout = () => {
+    localStorage.removeItem('access_token')
+    localStorage.removeItem('refresh_token')
+    localStorage.removeItem('user')
+    window.location.href = '/login'
+  }
+
   return (
     <header className="bg-card border-b border-border px-6 py-4">
       <div className="flex items-center justify-between">
@@ -149,10 +157,19 @@ const Topbar = ({ activeModule, darkMode, setDarkMode, sidebarCollapsed, setSide
                 Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">
-                <LogOut className="mr-2 h-4 w-4" />
-                Logout
+
+              {/* ✅ Updated Logout Button */}
+              <DropdownMenuItem asChild>
+                <Button
+                  variant="ghost"
+                  onClick={handleLogout}
+                  className="w-full justify-start text-red-600"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </Button>
               </DropdownMenuItem>
+
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -162,4 +179,3 @@ const Topbar = ({ activeModule, darkMode, setDarkMode, sidebarCollapsed, setSide
 }
 
 export default Topbar
-

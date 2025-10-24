@@ -18,21 +18,19 @@ class RoomModel(BaseModel):
             {
                 'name': 'Deluxe Garden View',
                 'description': 'Spacious room with beautiful garden views and modern amenities',
-                'price_per_night': 15000,
+                'price_per_night': 2500,
                 'max_occupancy': 2,
                 'total_rooms': 8,
                 'amenities': [
                     'King Size Bed',
                     'Garden View',
                     'Free WiFi',
-                    'Air Conditioning',
-                    'Mini Bar',
                     'Private Bathroom',
                     'Room Service'
                 ],
                 'images': [
-                    'https://images.unsplash.com/photo-1566665797739-1674de7a421a?w=800',
-                    'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800'
+                    'https://media.thehenriboma.com/accomodation.jpg?w=800',
+                    'https://media.thehenriboma.com/accomodation.jpg?w=800'
                 ],
                 'status': 'active',
                 'room_size': '35 sqm',
@@ -42,81 +40,23 @@ class RoomModel(BaseModel):
             {
                 'name': 'Heritage Suite',
                 'description': 'Luxurious suite with cultural elements and premium amenities',
-                'price_per_night': 25000,
+                'price_per_night': 1500,
                 'max_occupancy': 3,
                 'total_rooms': 6,
                 'amenities': [
-                    'Separate Living Area',
+                    'Cultural huts',
                     'Cultural Decor',
                     'Premium Amenities',
-                    'Balcony',
-                    'Free WiFi',
-                    'Air Conditioning',
-                    'Mini Bar',
                     'Room Service',
-                    'Complimentary Breakfast'
                 ],
                 'images': [
-                    'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=800',
-                    'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=800'
+                    'https://media.thehenriboma.com/huts1.jpg?w=800',
+                    'https://media.thehenriboma.com/huts1.jpg?w=800'
                 ],
                 'status': 'active',
                 'room_size': '55 sqm',
                 'bed_type': 'King Size + Sofa Bed',
                 'view_type': 'Heritage Garden'
-            },
-            {
-                'name': 'Family Villa',
-                'description': 'Perfect for families with children, featuring multiple bedrooms and private amenities',
-                'price_per_night': 35000,
-                'max_occupancy': 6,
-                'total_rooms': 4,
-                'amenities': [
-                    '3 Bedrooms',
-                    'Kids Play Area',
-                    'Kitchen',
-                    'Private Pool',
-                    'Living Room',
-                    'Dining Area',
-                    'Free WiFi',
-                    'Air Conditioning',
-                    'Laundry Service'
-                ],
-                'images': [
-                    'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800',
-                    'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=800'
-                ],
-                'status': 'active',
-                'room_size': '120 sqm',
-                'bed_type': '2 King Size + 2 Single',
-                'view_type': 'Pool & Garden'
-            },
-            {
-                'name': 'Presidential Suite',
-                'description': 'Ultimate luxury experience with panoramic views and exclusive services',
-                'price_per_night': 50000,
-                'max_occupancy': 4,
-                'total_rooms': 2,
-                'amenities': [
-                    'Panoramic Views',
-                    'Private Terrace',
-                    'Jacuzzi',
-                    'Personal Chef',
-                    'Butler Service',
-                    'Premium Bar',
-                    'Office Space',
-                    'Separate Living & Dining',
-                    'Master Bedroom',
-                    'Guest Bedroom'
-                ],
-                'images': [
-                    'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=800',
-                    'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800'
-                ],
-                'status': 'active',
-                'room_size': '200 sqm',
-                'bed_type': '2 King Size',
-                'view_type': 'Panoramic Resort'
             }
         ]
         

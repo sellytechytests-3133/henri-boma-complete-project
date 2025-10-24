@@ -131,7 +131,7 @@ const RoomsModule = () => {
         <Input 
           id="imageUrl" 
           defaultValue={room?.image || ''} 
-          placeholder="https://images.unsplash.com/..." 
+          placeholder="https://media.thehenriboma.com/..." 
         />
       </div>
       <div>

@@ -60,9 +60,9 @@ export const roomTypes = [
     id: 'room-1',
     name: 'Deluxe Garden View',
     description: 'Spacious room with beautiful garden views',
-    price: 15000, // KSH per night
-    amenities: ['King Size Bed', 'Garden View', 'Free WiFi', 'Air Conditioning', 'Mini Bar'],
-    image: 'https://images.unsplash.com/photo-1566665797739-1674de7a421a?w=400',
+    price: 2500, // KSH per night
+    amenities: ['King Size Bed', 'Garden View', 'Free WiFi'],
+    image: 'https://media.thehenriboma.com/accomodation.jpg?w=400',
     status: 'available',
     totalRooms: 8,
     availableRooms: 5
@@ -71,34 +71,12 @@ export const roomTypes = [
     id: 'room-2',
     name: 'Heritage Suite',
     description: 'Luxurious suite with cultural elements',
-    price: 25000,
-    amenities: ['Separate Living Area', 'Cultural Decor', 'Premium Amenities', 'Balcony'],
-    image: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=400',
+    price: 1500,
+    amenities: ['Cultural huts', 'Cultural Decor', 'Garden View', 'Free WiFi'],
+    image: 'https://media.thehenriboma.com/huts1.jpg?w=400',
     status: 'available',
     totalRooms: 6,
     availableRooms: 3
-  },
-  {
-    id: 'room-3',
-    name: 'Family Villa',
-    description: 'Perfect for families with children',
-    price: 35000,
-    amenities: ['3 Bedrooms', 'Kids Play Area', 'Kitchen', 'Private Pool'],
-    image: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=400',
-    status: 'available',
-    totalRooms: 4,
-    availableRooms: 2
-  },
-  {
-    id: 'room-4',
-    name: 'Presidential Suite',
-    description: 'Ultimate luxury experience',
-    price: 50000,
-    amenities: ['Panoramic Views', 'Private Terrace', 'Jacuzzi', 'Personal Chef'],
-    image: 'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=400',
-    status: 'available',
-    totalRooms: 2,
-    availableRooms: 1
   }
 ]
 
@@ -489,9 +467,7 @@ export const chartData = {
   ],
   roomOccupancy: [
     { roomType: 'Deluxe Garden View', occupancy: 75 },
-    { roomType: 'Heritage Suite', occupancy: 85 },
-    { roomType: 'Family Villa', occupancy: 60 },
-    { roomType: 'Presidential Suite', occupancy: 90 }
+    { roomType: 'Heritage Suite', occupancy: 85 }
   ]
 }
 

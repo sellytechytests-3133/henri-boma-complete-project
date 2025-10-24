@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import Sidebar from './components/Sidebar'
 import Topbar from './components/Topbar'
+import Login from './pages/Login'
+import ProtectedRoute from './components/ProtectedRoute'
 import DashboardModule from './modules/DashboardModule'
 import BookingsModule from './modules/BookingsModule'
 import RoomsModule from './modules/RoomsModule'
@@ -63,42 +66,51 @@ function App() {
   }
 
   return (
-    <div className="flex h-screen bg-background">
-      {/* Sidebar */}
-      <Sidebar 
-        activeModule={activeModule}
-        setActiveModule={setActiveModule}
-        collapsed={sidebarCollapsed}
-        setCollapsed={setSidebarCollapsed}
-      />
+    <Router>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/admin/*" element={
+          <ProtectedRoute>
+            <div className="flex h-screen bg-background">
+              {/* Sidebar */}
+              <Sidebar 
+                activeModule={activeModule}
+                setActiveModule={setActiveModule}
+                collapsed={sidebarCollapsed}
+                setCollapsed={setSidebarCollapsed}
+              />
 
-      {/* Main content area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Topbar */}
-        <Topbar 
-          activeModule={activeModule}
-          darkMode={darkMode}
-          setDarkMode={setDarkMode}
-          sidebarCollapsed={sidebarCollapsed}
-          setSidebarCollapsed={setSidebarCollapsed}
-        />
+              {/* Main content area */}
+              <div className="flex-1 flex flex-col overflow-hidden">
+                {/* Topbar */}
+                <Topbar 
+                  activeModule={activeModule}
+                  darkMode={darkMode}
+                  setDarkMode={setDarkMode}
+                  sidebarCollapsed={sidebarCollapsed}
+                  setSidebarCollapsed={setSidebarCollapsed}
+                />
 
-        {/* Main content */}
-        <main className="flex-1 overflow-y-auto p-6 admin-main-content">
-          {renderModule()}
-        </main>
-      </div>
+                {/* Main content */}
+                <main className="flex-1 overflow-y-auto p-6 admin-main-content">
+                  {renderModule()}
+                </main>
+              </div>
 
-      {/* Mobile sidebar overlay */}
-      {!sidebarCollapsed && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
-          onClick={() => setSidebarCollapsed(true)}
-        />
-      )}
-    </div>
+              {/* Mobile sidebar overlay */}
+              {!sidebarCollapsed && (
+                <div 
+                  className="fixed inset-0 bg-black/50 z-40 md:hidden"
+                  onClick={() => setSidebarCollapsed(true)}
+                />
+              )}
+            </div>
+          </ProtectedRoute>
+        } />
+        <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
+      </Routes>
+    </Router>
   )
 }
 
 export default App
-

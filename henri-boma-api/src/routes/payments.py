@@ -2,6 +2,8 @@ from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt
 from datetime import datetime, timedelta
 from src.models.base import BaseModel, validate_required_fields, ValidationError
+from src.services.mpesa_service import mpesa_service
+from src.utils.helpers import format_phone_number
 
 payments_bp = Blueprint('payments', __name__)
 
@@ -114,6 +116,194 @@ def initiate_payment():
         return jsonify({'message': str(e)}), 400
     except Exception as e:
         return jsonify({'message': 'Failed to initiate payment', 'error': str(e)}), 500
+
+@payments_bp.route('/mpesa/stk-push', methods=['POST'])
+def mpesa_stk_push():
+    """Initiate M-Pesa STK push payment"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'message': 'Request data is required'}), 400
+        
+        required_fields = ['phone_number', 'amount', 'account_reference', 'transaction_desc']
+        validate_required_fields(data, required_fields)
+        
+        # Validate phone number
+        phone_number = data['phone_number']
+        formatted_phone = format_phone_number(phone_number)
+        
+        # Validate amount
+        amount = float(data['amount'])
+        if amount < 1:
+            raise ValidationError("Amount must be at least 1 KES")
+        
+        # Initiate STK push
+        stk_response = mpesa_service.initiate_stk_push(
+            phone_number=formatted_phone,
+            amount=amount,
+            account_reference=data['account_reference'],
+            transaction_desc=data['transaction_desc']
+        )
+        
+        # Save transaction to database
+        payments_model = get_payments_model()
+        
+        transaction_data = {
+            'payment_id': data.get('payment_id'),
+            'amount': amount,
+            'currency': 'KES',
+            'payment_method': 'mpesa',
+            'reference_type': data.get('reference_type', 'payment'),
+            'reference_id': data.get('reference_id'),
+            'customer_name': data.get('customer_name'),
+            'customer_email': data.get('customer_email'),
+            'customer_phone': formatted_phone,
+            'status': 'processing',
+            'transaction_id': None,
+            'provider_reference': stk_response.get('CheckoutRequestID'),
+            'mpesa_response': stk_response,
+            'failure_reason': None,
+            'metadata': data.get('metadata', {}),
+            'initiated_at': datetime.utcnow(),
+            'completed_at': None
+        }
+        
+        payment = payments_model.create(transaction_data)
+        
+        return jsonify({
+            'message': 'STK push initiated successfully',
+            'payment': payment,
+            'mpesa_response': stk_response,
+            'next_action': {
+                'type': 'mpesa_prompt',
+                'message': 'Please check your phone for M-Pesa prompt',
+                'timeout': 120
+            }
+        }), 201
+        
+    except ValidationError as e:
+        return jsonify({'message': str(e)}), 400
+    except Exception as e:
+        return jsonify({'message': 'Failed to initiate STK push', 'error': str(e)}), 500
+
+@payments_bp.route('/mpesa/callback', methods=['POST'])
+def mpesa_callback():
+    """Handle M-Pesa callback"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'message': 'Request data is required'}), 400
+        
+        # Extract callback data
+        body = data.get('Body', {})
+        stk_callback = body.get('stkCallback', {})
+        
+        checkout_request_id = stk_callback.get('CheckoutRequestID')
+        result_code = stk_callback.get('ResultCode')
+        result_desc = stk_callback.get('ResultDesc')
+        
+        # Find payment by checkout request ID
+        payments_model = get_payments_model()
+        payment = payments_model.find_one({'provider_reference': checkout_request_id})
+        
+        if not payment:
+            return jsonify({'message': 'Payment not found'}), 404
+        
+        # Update payment status based on result
+        if result_code == 0:
+            # Payment successful
+            callback_metadata = stk_callback.get('CallbackMetadata', {})
+            items = callback_metadata.get('Item', [])
+            
+            # Extract transaction details
+            transaction_id = None
+            amount = None
+            mpesa_receipt = None
+            
+            for item in items:
+                if item.get('Name') == 'MpesaReceiptNumber':
+                    mpesa_receipt = item.get('Value')
+                elif item.get('Name') == 'Amount':
+                    amount = item.get('Value')
+                elif item.get('Name') == 'TransactionDate':
+                    transaction_date = item.get('Value')
+            
+            update_data = {
+                'status': 'completed',
+                'transaction_id': mpesa_receipt,
+                'completed_at': datetime.utcnow(),
+                'mpesa_callback': data
+            }
+            
+        else:
+            # Payment failed
+            update_data = {
+                'status': 'failed',
+                'failure_reason': result_desc,
+                'completed_at': datetime.utcnow(),
+                'mpesa_callback': data
+            }
+        
+        # Update payment
+        updated_payment = payments_model.update_by_id(payment['id'], update_data)
+        
+        return jsonify({
+            'message': 'Callback processed successfully',
+            'payment_id': payment['payment_id'],
+            'status': update_data['status']
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'message': 'Failed to process callback', 'error': str(e)}), 500
+
+@payments_bp.route('/mpesa/query/<checkout_request_id>', methods=['GET'])
+def query_mpesa_status(checkout_request_id):
+    """Query M-Pesa payment status"""
+    try:
+        # Find payment by checkout request ID
+        payments_model = get_payments_model()
+        payment = payments_model.find_one({'provider_reference': checkout_request_id})
+        
+        if not payment:
+            return jsonify({'message': 'Payment not found'}), 404
+        
+        # If still processing, query M-Pesa
+        if payment['status'] == 'processing':
+            try:
+                mpesa_response = mpesa_service.query_stk_push_status(checkout_request_id)
+                
+                # Update payment based on M-Pesa response
+                result_code = mpesa_response.get('ResultCode', 1)
+                
+                if result_code == 0:
+                    # Payment successful
+                    update_data = {
+                        'status': 'completed',
+                        'completed_at': datetime.utcnow(),
+                        'mpesa_query_response': mpesa_response
+                    }
+                else:
+                    # Payment failed or still pending
+                    update_data = {
+                        'mpesa_query_response': mpesa_response
+                    }
+                
+                payments_model.update_by_id(payment['id'], update_data)
+                payment = payments_model.find_by_id(payment['id'])
+                
+            except Exception as e:
+                # M-Pesa query failed, return current status
+                pass
+        
+        return jsonify({
+            'payment': payment,
+            'status': payment['status']
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'message': 'Failed to query payment status', 'error': str(e)}), 500
 
 @payments_bp.route('/status/<payment_id>', methods=['GET'])
 def get_payment_status(payment_id):

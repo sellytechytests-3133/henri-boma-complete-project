@@ -1,8 +1,7 @@
-import { useState } from 'react'
-import { TrendingUp, Users, Calendar, DollarSign, Eye, Download } from 'lucide-react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Badge } from '@/components/ui/badge'
 import {
   Select,
   SelectContent,
@@ -10,510 +9,341 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import StatCard from '../components/StatCard'
 import {
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
   BarChart,
   Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  LineChart,
+  Line,
   PieChart,
   Pie,
-  Cell,
-  AreaChart,
-  Area
+  Cell
 } from 'recharts'
+import { 
+  TrendingUp, 
+  Users, 
+  Calendar, 
+  DollarSign, 
+  ShoppingCart,
+  CreditCard,
+  Download
+} from 'lucide-react'
+import api from '@/lib/api'
 
 const AnalyticsModule = () => {
-  const [dateRange, setDateRange] = useState('30d')
+  const [summary, setSummary] = useState(null)
+  const [revenueAnalytics, setRevenueAnalytics] = useState(null)
+  const [bookingAnalytics, setBookingAnalytics] = useState(null)
+  const [userAnalytics, setUserAnalytics] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [period, setPeriod] = useState('last_30_days')
+  const [exporting, setExporting] = useState(false)
+  const cacheRef = useRef({})
 
-  // Mock analytics data
-  const overviewStats = {
-    totalRevenue: 4250000,
-    totalBookings: 156,
-    averageStay: 3.2,
-    occupancyRate: 78,
-    dayPassVisitors: 342,
-    foodOrders: 89
+  useEffect(() => {
+    loadAnalytics()
+  }, [loadAnalytics])
+
+  const loadAnalytics = useCallback(async () => {
+    try {
+      setLoading(true)
+      setError('')
+
+      // Return cached data if available for the selected period
+      if (cacheRef.current[period]) {
+        const cached = cacheRef.current[period]
+        setSummary(cached.summary)
+        setRevenueAnalytics(cached.revenueAnalytics)
+        setBookingAnalytics(cached.bookingAnalytics)
+        setUserAnalytics(cached.userAnalytics)
+        setLoading(false)
+        return
+      }
+
+      const [summaryRes, revenueRes, bookingsRes, usersRes] = await Promise.all([
+        api.get(`/analytics/summary?period=${period}`),
+        api.get(`/analytics/revenue?period=${period}`),
+        api.get(`/analytics/bookings?period=${period}`),
+        api.get('/analytics/users')
+      ])
+
+      setSummary(summaryRes.data.summary)
+      setRevenueAnalytics(revenueRes.data.analytics)
+      setBookingAnalytics(bookingsRes.data.analytics)
+      setUserAnalytics(usersRes.data.analytics)
+
+      // Cache the fetched data for this period
+      cacheRef.current[period] = {
+        summary: summaryRes.data.summary,
+        revenueAnalytics: revenueRes.data.analytics,
+        bookingAnalytics: bookingsRes.data.analytics,
+        userAnalytics: usersRes.data.analytics
+      }
+    } catch {
+      setError('Failed to load analytics data')
+    } finally {
+      setLoading(false)
+    }
+  }, [period])
+
+  const handleExportReport = async () => {
+    try {
+      setExporting(true)
+      const response = await api.get(`/analytics/reports/sales?period=${period}`)
+      const reportData = response.data.report
+      
+      // Convert to CSV
+      const csvContent = [
+        ['Payment ID', 'Amount', 'Payment Method', 'Reference Type', 'Customer Name', 'Customer Phone', 'Completed At', 'Transaction ID'],
+        ...reportData.transactions.map(tx => [
+          tx.payment_id,
+          tx.amount,
+          tx.payment_method,
+          tx.reference_type,
+          tx.customer_name,
+          tx.customer_phone,
+          tx.completed_at,
+          tx.transaction_id
+        ])
+      ].map(row => row.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')
+
+      // Download CSV
+      const blob = new Blob([csvContent], { type: 'text/csv' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `sales-report-${period}.csv`
+      a.click()
+      window.URL.revokeObjectURL(url)
+    } catch {
+      setError('Failed to export report')
+    } finally {
+      setExporting(false)
+    }
   }
 
-  const revenueBySource = [
-    { source: 'Accommodation', amount: 2850000, percentage: 67 },
-    { source: 'Food & Beverage', amount: 680000, percentage: 16 },
-    { source: 'Day Passes', amount: 425000, percentage: 10 },
-    { source: 'Events', amount: 295000, percentage: 7 }
-  ]
+  // Prepare chart data
+  const revenueByDayData = revenueAnalytics?.revenue_by_day ? 
+    Object.entries(revenueAnalytics.revenue_by_day).map(([date, amount]) => ({
+      date: new Date(date).toLocaleDateString(),
+      revenue: amount
+    })) : []
 
-  const monthlyTrends = [
-    { month: 'Jan', revenue: 3200000, bookings: 120, visitors: 280 },
-    { month: 'Feb', revenue: 3800000, bookings: 145, visitors: 320 },
-    { month: 'Mar', revenue: 4100000, bookings: 160, visitors: 380 },
-    { month: 'Apr', revenue: 3900000, bookings: 155, visitors: 350 },
-    { month: 'May', revenue: 4300000, bookings: 170, visitors: 420 },
-    { month: 'Jun', revenue: 4600000, bookings: 185, visitors: 450 },
-    { month: 'Jul', revenue: 4800000, bookings: 195, visitors: 480 },
-    { month: 'Aug', revenue: 4250000, bookings: 156, visitors: 342 }
-  ]
+  const revenueByMethodData = revenueAnalytics?.revenue_by_method ?
+    Object.entries(revenueAnalytics.revenue_by_method).map(([method, amount]) => ({
+      name: method.toUpperCase(),
+      value: amount
+    })) : []
 
-  const customerSegments = [
-    { segment: 'Leisure Travelers', count: 89, percentage: 57 },
-    { segment: 'Business Travelers', count: 34, percentage: 22 },
-    { segment: 'Event Attendees', count: 23, percentage: 15 },
-    { segment: 'Day Visitors', count: 10, percentage: 6 }
-  ]
+  const bookingStatusData = bookingAnalytics?.bookings_by_status ?
+    Object.entries(bookingAnalytics.bookings_by_status).map(([status, count]) => ({
+      name: status.charAt(0).toUpperCase() + status.slice(1),
+      value: count
+    })) : []
 
-  const roomTypePerformance = [
-    { type: 'Deluxe Garden View', bookings: 45, revenue: 1350000, avgRate: 30000 },
-    { type: 'Heritage Suite', bookings: 28, revenue: 1120000, avgRate: 40000 },
-    { type: 'Family Villa', bookings: 15, revenue: 900000, avgRate: 60000 },
-    { type: 'Presidential Suite', bookings: 8, revenue: 480000, avgRate: 60000 }
-  ]
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8']
 
-  const dailyOccupancy = [
-    { date: '2025-08-14', occupancy: 72 },
-    { date: '2025-08-15', occupancy: 85 },
-    { date: '2025-08-16', occupancy: 68 },
-    { date: '2025-08-17', occupancy: 92 },
-    { date: '2025-08-18', occupancy: 78 },
-    { date: '2025-08-19', occupancy: 81 },
-    { date: '2025-08-20', occupancy: 75 }
-  ]
-
-  const COLORS = ['#4BA3C3', '#7B4B3A', '#60A5FA', '#F59E0B', '#10B981']
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Analytics Dashboard</h1>
-          <p className="text-muted-foreground">Comprehensive insights and performance metrics</p>
+          <h1 className="text-3xl font-bold">Analytics & Reports</h1>
+          <p className="text-muted-foreground">Business insights and performance metrics</p>
         </div>
-        <div className="flex items-center space-x-2">
-          <Select value={dateRange} onValueChange={setDateRange}>
-            <SelectTrigger className="w-32">
-              <SelectValue />
+        <div className="flex items-center space-x-4">
+          <Select value={period} onValueChange={setPeriod}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Select period" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="7d">Last 7 days</SelectItem>
-              <SelectItem value="30d">Last 30 days</SelectItem>
-              <SelectItem value="90d">Last 3 months</SelectItem>
-              <SelectItem value="1y">Last year</SelectItem>
+              <SelectItem value="last_7_days">Last 7 Days</SelectItem>
+              <SelectItem value="last_30_days">Last 30 Days</SelectItem>
+              <SelectItem value="this_month">This Month</SelectItem>
+              <SelectItem value="last_month">Last Month</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline">
+          <Button onClick={handleExportReport} disabled={exporting}>
             <Download className="h-4 w-4 mr-2" />
-            Export Report
+            {exporting ? 'Exporting...' : 'Export Report'}
           </Button>
         </div>
       </div>
 
-      {/* Overview Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6">
-        <StatCard
-          title="Total Revenue"
-          value={overviewStats.totalRevenue}
-          icon={DollarSign}
-          currency={true}
-          trend="up"
-          trendValue={8.2}
-        />
-        <StatCard
-          title="Total Bookings"
-          value={overviewStats.totalBookings}
-          icon={Calendar}
-          trend="up"
-          trendValue={12.5}
-        />
-        <StatCard
-          title="Avg Stay (Days)"
-          value={overviewStats.averageStay}
-          icon={Users}
-          trend="up"
-          trendValue={5.1}
-        />
-        <StatCard
-          title="Occupancy Rate"
-          value={`${overviewStats.occupancyRate}%`}
-          icon={TrendingUp}
-          trend="up"
-          trendValue={3.2}
-        />
-        <StatCard
-          title="Day Visitors"
-          value={overviewStats.dayPassVisitors}
-          icon={Eye}
-          trend="down"
-          trendValue={2.1}
-        />
-        <StatCard
-          title="Food Orders"
-          value={overviewStats.foodOrders}
-          icon={Users}
-          trend="up"
-          trendValue={15.3}
-        />
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">
+          {error}
+        </div>
+      )}
+
+      {/* Summary Cards */}
+      {summary && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card className="admin-card">
+            <CardContent className="p-6">
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                  <Calendar className="h-6 w-6 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{summary.total_bookings}</p>
+                  <p className="text-sm text-muted-foreground">Total Bookings</p>
+                  <p className="text-xs text-green-600">+{summary.recent_bookings} this week</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="admin-card">
+            <CardContent className="p-6">
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+                  <DollarSign className="h-6 w-6 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">KES {(summary?.total_revenue ?? 0).toLocaleString()}</p>
+                  <p className="text-sm text-muted-foreground">Total Revenue</p>
+                  <p className="text-xs text-green-600">{(summary?.payment_success_rate ?? 0)}% success rate</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="admin-card">
+            <CardContent className="p-6">
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
+                  <ShoppingCart className="h-6 w-6 text-purple-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{summary?.total_orders ?? 0}</p>
+                  <p className="text-sm text-muted-foreground">Total Orders</p>
+                  <p className="text-xs text-green-600">+{summary?.recent_orders ?? 0} this week</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="admin-card">
+            <CardContent className="p-6">
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900 rounded-lg flex items-center justify-center">
+                  <Users className="h-6 w-6 text-orange-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{summary?.total_users ?? 0}</p>
+                  <p className="text-sm text-muted-foreground">Total Users</p>
+                  <p className="text-xs text-muted-foreground">{summary?.total_events ?? 0} events</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Revenue Trend */}
+        <Card className="admin-card">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              Revenue Trend
+              <Badge variant="secondary">{period.replace('_', ' ')}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={revenueByDayData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip formatter={(value) => [`KES ${value.toLocaleString()}`, 'Revenue']} />
+                <Line type="monotone" dataKey="revenue" stroke="#8884d8" strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Payment Methods */}
+        <Card className="admin-card">
+          <CardHeader>
+            <CardTitle>Revenue by Payment Method</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={revenueByMethodData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {revenueByMethodData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value) => [`KES ${value.toLocaleString()}`, 'Revenue']} />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Booking Status */}
+        <Card className="admin-card">
+          <CardHeader>
+            <CardTitle>Bookings by Status</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={bookingStatusData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="value" fill="#8884d8" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* User Analytics */}
+        {userAnalytics && (
+          <Card className="admin-card">
+            <CardHeader>
+              <CardTitle>Users by Role</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {Object.entries(userAnalytics.users_by_role).map(([role, count]) => (
+                  <div key={role} className="flex items-center justify-between">
+                    <Badge variant="outline">{role.replace('_', ' ').toUpperCase()}</Badge>
+                    <span className="font-semibold">{count}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
-
-      <Tabs defaultValue="revenue" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="revenue">Revenue Analysis</TabsTrigger>
-          <TabsTrigger value="occupancy">Occupancy Trends</TabsTrigger>
-          <TabsTrigger value="customers">Customer Insights</TabsTrigger>
-          <TabsTrigger value="performance">Performance Metrics</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="revenue" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Monthly Revenue Trend */}
-            <Card className="admin-card">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <TrendingUp className="h-5 w-5 mr-2" />
-                  Monthly Revenue Trend
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={monthlyTrends}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
-                      <YAxis />
-                      <Tooltip formatter={(value) => [`KSH ${value.toLocaleString()}`, 'Revenue']} />
-                      <Area 
-                        type="monotone" 
-                        dataKey="revenue" 
-                        stroke="#4BA3C3" 
-                        fill="#4BA3C3"
-                        fillOpacity={0.3}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Revenue by Source */}
-            <Card className="admin-card">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <DollarSign className="h-5 w-5 mr-2" />
-                  Revenue by Source
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={revenueBySource}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ source, percentage }) => `${source}: ${percentage}%`}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="amount"
-                      >
-                        {revenueBySource.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value) => [`KSH ${value.toLocaleString()}`, 'Revenue']} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="mt-4 space-y-2">
-                  {revenueBySource.map((source, index) => (
-                    <div key={source.source} className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <div 
-                          className="w-3 h-3 rounded-full" 
-                          style={{ backgroundColor: COLORS[index] }}
-                        />
-                        <span className="text-sm">{source.source}</span>
-                      </div>
-                      <span className="text-sm font-medium">
-                        KSH {source.amount.toLocaleString()}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Room Type Performance */}
-          <Card className="admin-card">
-            <CardHeader>
-              <CardTitle>Room Type Performance</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={roomTypePerformance}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="type" />
-                    <YAxis />
-                    <Tooltip formatter={(value) => [`KSH ${value.toLocaleString()}`, 'Revenue']} />
-                    <Bar dataKey="revenue" fill="#4BA3C3" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="occupancy" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Daily Occupancy */}
-            <Card className="admin-card">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Calendar className="h-5 w-5 mr-2" />
-                  Daily Occupancy Rate
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={dailyOccupancy}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis />
-                      <Tooltip formatter={(value) => [`${value}%`, 'Occupancy']} />
-                      <Line 
-                        type="monotone" 
-                        dataKey="occupancy" 
-                        stroke="#4BA3C3" 
-                        strokeWidth={2}
-                        dot={{ fill: '#4BA3C3' }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Monthly Bookings */}
-            <Card className="admin-card">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Users className="h-5 w-5 mr-2" />
-                  Monthly Bookings & Visitors
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={monthlyTrends}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="bookings" fill="#4BA3C3" name="Bookings" />
-                      <Bar dataKey="visitors" fill="#7B4B3A" name="Day Visitors" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="customers" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Customer Segments */}
-            <Card className="admin-card">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Users className="h-5 w-5 mr-2" />
-                  Customer Segments
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {customerSegments.map((segment, index) => (
-                    <div key={segment.segment} className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">{segment.segment}</span>
-                        <span className="text-sm text-muted-foreground">
-                          {segment.count} ({segment.percentage}%)
-                        </span>
-                      </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div 
-                          className="h-2 rounded-full" 
-                          style={{ 
-                            width: `${segment.percentage}%`,
-                            backgroundColor: COLORS[index % COLORS.length]
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Customer Satisfaction */}
-            <Card className="admin-card">
-              <CardHeader>
-                <CardTitle>Customer Satisfaction Metrics</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="text-center">
-                  <div className="text-4xl font-bold text-primary mb-2">4.8</div>
-                  <div className="text-sm text-muted-foreground">Average Rating</div>
-                </div>
-                
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">5 Stars</span>
-                    <div className="flex items-center space-x-2 flex-1 mx-4">
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div className="bg-green-500 h-2 rounded-full" style={{ width: '78%' }} />
-                      </div>
-                      <span className="text-xs text-muted-foreground w-8">78%</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">4 Stars</span>
-                    <div className="flex items-center space-x-2 flex-1 mx-4">
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div className="bg-blue-500 h-2 rounded-full" style={{ width: '15%' }} />
-                      </div>
-                      <span className="text-xs text-muted-foreground w-8">15%</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">3 Stars</span>
-                    <div className="flex items-center space-x-2 flex-1 mx-4">
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div className="bg-yellow-500 h-2 rounded-full" style={{ width: '5%' }} />
-                      </div>
-                      <span className="text-xs text-muted-foreground w-8">5%</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">2 Stars</span>
-                    <div className="flex items-center space-x-2 flex-1 mx-4">
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div className="bg-orange-500 h-2 rounded-full" style={{ width: '1%' }} />
-                      </div>
-                      <span className="text-xs text-muted-foreground w-8">1%</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">1 Star</span>
-                    <div className="flex items-center space-x-2 flex-1 mx-4">
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div className="bg-red-500 h-2 rounded-full" style={{ width: '1%' }} />
-                      </div>
-                      <span className="text-xs text-muted-foreground w-8">1%</span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="performance" className="space-y-6">
-          {/* Key Performance Indicators */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card className="admin-card">
-              <CardContent className="p-6">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-primary">KSH 27,244</div>
-                  <div className="text-sm text-muted-foreground">Average Daily Rate</div>
-                  <div className="text-xs text-green-600 mt-1">+5.2% vs last month</div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="admin-card">
-              <CardContent className="p-6">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-primary">KSH 21,250</div>
-                  <div className="text-sm text-muted-foreground">Revenue per Room</div>
-                  <div className="text-xs text-green-600 mt-1">+8.1% vs last month</div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="admin-card">
-              <CardContent className="p-6">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-primary">92%</div>
-                  <div className="text-sm text-muted-foreground">Customer Retention</div>
-                  <div className="text-xs text-green-600 mt-1">+2.3% vs last month</div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="admin-card">
-              <CardContent className="p-6">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-primary">3.2</div>
-                  <div className="text-sm text-muted-foreground">Average Length of Stay</div>
-                  <div className="text-xs text-green-600 mt-1">+0.3 days vs last month</div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Performance Summary */}
-          <Card className="admin-card">
-            <CardHeader>
-              <CardTitle>Performance Summary</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div>
-                  <h3 className="font-semibold mb-4">Top Performing Areas</h3>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950 rounded-lg">
-                      <span className="text-sm">Customer Satisfaction</span>
-                      <span className="text-sm font-semibold text-green-600">Excellent</span>
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950 rounded-lg">
-                      <span className="text-sm">Revenue Growth</span>
-                      <span className="text-sm font-semibold text-green-600">+12.5%</span>
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950 rounded-lg">
-                      <span className="text-sm">Occupancy Rate</span>
-                      <span className="text-sm font-semibold text-green-600">Above Target</span>
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <h3 className="font-semibold mb-4">Areas for Improvement</h3>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg">
-                      <span className="text-sm">Day Pass Utilization</span>
-                      <span className="text-sm font-semibold text-yellow-600">Below Target</span>
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg">
-                      <span className="text-sm">Food Service Speed</span>
-                      <span className="text-sm font-semibold text-yellow-600">Needs Attention</span>
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg">
-                      <span className="text-sm">Marketing Conversion</span>
-                      <span className="text-sm font-semibold text-yellow-600">Room for Growth</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
     </div>
   )
 }
 
 export default AnalyticsModule
-

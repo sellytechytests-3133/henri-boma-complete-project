@@ -37,13 +37,11 @@ class BookingModel(BaseModel):
         # Calculate nights and total amount
         nights = (check_out - check_in).days
         room_rates = {
-            'Deluxe Garden View': 15000,
-            'Heritage Suite': 25000,
-            'Family Villa': 35000,
-            'Presidential Suite': 50000
+            'Deluxe Garden View': 2500,
+            'Heritage Suite': 1500
         }
         
-        rate_per_night = room_rates.get(booking_data['room_type'], 15000)
+        rate_per_night = room_rates.get(booking_data['room_type'], 1500)
         total_amount = rate_per_night * nights
         
         # Generate booking ID
